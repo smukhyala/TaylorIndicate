@@ -1,7 +1,5 @@
-// smukhyala 2023
-
 //@version=5
-indicator("Taylor Price Error Estimate", overlay=false)
+indicator("Taylor Price Probability Zones", overlay=false)
 
 // Define input parameters
 periods = input(40, "Number of Periods")
@@ -33,11 +31,37 @@ approximateCurve(source, n, p) =>
 approximatedCurve = approximateCurve(close, degree, periods)
 approximationError = (close - approximatedCurve) * 1000 // Adjust the scale factor as needed
 
+// Calculate probability zones
+priceRange = high - low
+probabilities = array.new_float(0)
+for i = 0 to 10
+    priceLevel = close + (i - 5) * priceRange * 0.025
+    var probability = 0.0 // Updated to series float type
+    if priceRange != 0
+        probability := (approximatedCurve - priceLevel >= 0 ? approximatedCurve - priceLevel : priceLevel - approximatedCurve) / priceRange
+    array.push(probabilities, probability)
+
+// Normalize probabilities to sum up to 100%
+totalProbability = array.sum(probabilities)
+for i = 0 to array.size(probabilities) - 1
+    array.set(probabilities, i, array.get(probabilities, i) / totalProbability)
+
+// Define colors for each probability zone
+colorZone(index) =>
+    if index == 9
+        color.new(color.red, 0)
+    else if index == 0
+        color.new(color.green, 0)
+    else
+        color.new(color.gray, 0)
+
 // Plot the original curve
 plot(close, color=color.blue, title="Price-Based Curve", linewidth=2)
 
 // Plot the approximated curve
 plot(approximatedCurve, color=color.red, title="Approximated Curve", linewidth=2)
 
-// Plot the approximation error
-plot(approximationError, color=color.yellow, title="Approximation Error", linewidth=2)
+// Label the probability zones
+for i = 0 to 9
+    priceLevel = close + (i - 5) * priceRange * 0.025
+    label.new(x = bar_index, y = priceLevel, style = label.style_label_left, text = str.tostring(array.get(probabilities, i) * 100) + "%", color = colorZone(i), textcolor = color.white)
